@@ -1,0 +1,51 @@
+version: "2.1"
+
+volumes:
+  config:
+services:
+  # https://hub.docker.com/_/traefik/
+  traefik:
+    build: .
+    network_mode: host
+    environment: 
+      CERTRESOLVER: "staging"
+      IP_ALLOWLIST: "'10.0.0.0/8','172.16.0.0/12','192.168.0.0/16'"
+      WHOAMI_HOST: "whoami.localhost"
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "8080:8080/tcp"
+    volumes:
+      - "config:/var"
+    labels:
+      io.balena.features.balena-socket: true
+
+  whoami:
+    image: "containous/whoami"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.whoami.entrypoints: "websecure"
+      traefik.http.routers.whoami.tls.certresolver: "staging"
+
+  homeassistant:
+    build: homeassistant
+    network_mode: host
+    ports:
+      - 8123:8123
+    privileged: true
+    volumes:
+      - 'config:/config'
+    restart: always
+    devices:
+      - "/dev:/dev"
+      - "/dev/serial/by-id/usb-0658_0200-if00:/dev/zwave"
+  hass-configurator:
+    image: "causticlab/hass-configurator-docker:arm"
+    network_mode: host
+    restart: always
+    ports:
+      - "3218:3218"
+    volumes:
+      - 'config:/hass-config'
+    environment:
+      - HC_BASEPATH=/hass-config
